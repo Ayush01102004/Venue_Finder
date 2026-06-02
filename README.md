@@ -67,14 +67,16 @@ Automatically retrieves all available result pages from Google Places API.
 ## Installation
 
 Clone repository
-
+```
 git clone https://github.com/yourusername/venue-finder.git
-
 cd venue-finder
+```
 
 Install dependencies
 
+```
 pip install -r requirements.txt
+```
 
 ---
 
@@ -82,25 +84,35 @@ pip install -r requirements.txt
 
 Create .env
 
+```
 GOOGLE_PLACES_API_KEY=YOUR_API_KEY
+```
 
 ---
 
 ## Run Application
 
+```
 uvicorn main:app --reload
+```
 
 Application:
 
+```
 http://localhost:8000
+```
 
 Swagger:
 
+```
 http://localhost:8000/docs
+```
 
 Redoc:
 
+```
 http://localhost:8000/redoc
+```
 
 ---
 
@@ -110,10 +122,12 @@ GET /health
 
 Response
 
+```
 {
-"status": "ok",
-"version": "1.0.0"
+  "status": "ok",
+  "version": "1.0.0"
 }
+```
 
 ---
 
@@ -151,44 +165,51 @@ GET /venues?lat=22.3072&lng=73.1812&radius=5000&type=cafe&min_rating=4.0
 
 ## Example Response
 
+```
 {
-"venues": [
-{
-"name": "Coffee Culture",
-"rating": 4.7,
-"address": "Gotri Rd, Vadodara",
-"lat": 22.3075,
-"lng": 73.1815,
-"place_id": "ChIJtestplace123"
+  "venues": [
+    {
+      "name": "Coffee Culture",
+      "rating": 4.7,
+      "address": "Gotri Rd, Vadodara",
+      "lat": 22.3075,
+      "lng": 73.1815,
+      "place_id": "ChIJtestplace123"
+    }
+  ],
+  "total": 1
 }
-],
-"total": 1
-}
+```
 
 ---
 
 ## Run Tests
 
+```
 pytest -v
+```
 
 ---
 
 ## Project Structure
-venue-finder/
+
+```
+venue-finder
 │
-├── app/
+├── app
 │   ├── main.py
 │   ├── schemas.py
 │   ├── venue_service.py
 │   └── google_places.py
 │
-├── tests/
+├── tests
 │   └── test_main.py
 │
-├── frontend/
+├── frontend
 │   └── Venue_Finder.html
 │
 ├── .env
 ├── .gitignore
 ├── README.md
 └── requirements.txt
+```
