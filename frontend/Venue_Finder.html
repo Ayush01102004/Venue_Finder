@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Venue Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  :root {
+    --bg: #0b0f14;
+    --surface: #111820;
+    --surface2: #18222e;
+    --border: rgba(80,160,220,0.15);
+    --border-active: rgba(80,160,220,0.45);
+    --accent: #3b9eff;
+    --accent-dim: rgba(59,158,255,0.12);
+    --accent-glow: rgba(59,158,255,0.25);
+    --text: #e2eaf4;
+    --text-muted: #5a7a9a;
+    --text-dim: #334455;
+    --green: #1fd180;
+    --green-dim: rgba(31,209,128,0.12);
+    --amber: #f5a623;
+    --amber-dim: rgba(245,166,35,0.12);
+    --red: #f04060;
+    --red-dim: rgba(240,64,96,0.10);
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 8px;
+    --radius-lg: 14px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  .header-sep { flex: 1; }
+
+  .api-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.err { background: var(--red); }
+
+  /* ── Sidebar ── */
+  aside {
+    grid-row: 2;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .field-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .field-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* coord row */
+  .coord-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .input-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .input-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+  }
+
+  input[type="number"], input[type="text"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input[type="number"]:focus, input[type="text"]:focus {
+    border-color: var(--border-active);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  /* geo button */
+  .geo-btn {
+    background: var(--accent-dim);
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 9px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+    width: 100%;
+  }
+  .geo-btn:hover { background: rgba(59,158,255,0.2); }
+
+  /* radius chips — 4 options */
+  .radius-opts {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .radius-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    padding: 7px 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1.3;
+  }
+  .radius-chip:hover { border-color: var(--border-active); color: var(--text); }
+  .radius-chip.selected {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* category pills */
+  .cat-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cat-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.15s;
+  }
+  .cat-pill:hover { border-color: var(--border-active); color: var(--text); }
+  .cat-pill.selected {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .cat-icon { font-size: 18px; }
+
+  /* search btn */
+  .search-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 12px;
+    text-transform: uppercase;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-top: auto;
+  }
+  .search-btn:hover { opacity: 0.88; }
+  .search-btn:active { transform: scale(0.98); }
+  .search-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Main panel ── */
+  main {
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .result-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .result-meta strong {
+    color: var(--accent);
+    font-size: 13px;
+  }
+
+  /* View toggle tabs */
+  .view-tabs {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .view-tab {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .view-tab:hover { border-color: var(--border-active); color: var(--text); }
+  .view-tab.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── Map + results layout ── */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Map view */
+  #mapContainer {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  #map {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+  }
+
+  /* List view */
+  .results-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: none;
+  }
+
+  /* Split view: map top half, list bottom half */
+  .split-mode #mapContainer {
+    flex: 0 0 55%;
+    border-bottom: 2px solid var(--border-active);
+  }
+
+  .split-mode .results-area {
+    display: block;
+    flex: 0 0 45%;
+  }
+
+  /* List-only mode */
+  .list-mode #mapContainer { display: none; }
+  .list-mode .results-area { display: block; flex: 1; }
+
+  /* Map-only mode */
+  .map-mode #mapContainer { flex: 1; }
+  .map-mode .results-area { display: none; }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: center;
+    line-height: 2;
+  }
+
+  .empty-state svg { opacity: 0.2; }
+
+  /* Map empty overlay */
+  .map-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: center;
+    line-height: 2;
+    pointer-events: none;
+    z-index: 400;
+  }
+
+  .map-empty svg { opacity: 0.2; }
+  .map-empty.hidden { display: none; }
+
+  .venues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+
+  .venue-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.2s, transform 0.15s;
+    animation: cardIn 0.3s ease both;
+    cursor: pointer;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .venue-card:hover {
+    border-color: var(--border-active);
+    transform: translateY(-2px);
+  }
+
+  .venue-card.highlighted {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .venue-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .venue-name {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .venue-rating {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--amber-dim);
+    border: 1px solid rgba(245,166,35,0.25);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--amber);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .venue-address {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .venue-address svg { flex-shrink: 0; margin-top: 2px; }
+
+  .venue-id {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .venue-coords {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 12px;
+  }
+
+  /* error banner */
+  .error-banner {
+    background: var(--red-dim);
+    border: 1px solid rgba(240,64,96,0.3);
+    border-radius: var(--radius);
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 10px 14px;
+    display: none;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* request preview */
+  .req-preview {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .req-preview span { color: var(--accent); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  /* rating slider */
+  .rating-slider-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rating-slider-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .rating-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--amber);
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--surface2);
+    outline: none;
+    border: 1px solid var(--border);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 6px rgba(245,166,35,0.4);
+  }
+
+  /* Leaflet dark map overrides */
+  .leaflet-container {
+    background: #0b0f14 !important;
+    font-family: var(--sans);
+  }
+  .leaflet-popup-content-wrapper {
+    background: var(--surface2);
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius);
+    color: var(--text);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .leaflet-popup-tip { background: var(--surface2); }
+  .leaflet-popup-content {
+    margin: 12px 14px;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .leaflet-popup-content .pop-name {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .leaflet-popup-content .pop-rating {
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .leaflet-popup-content .pop-addr {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .leaflet-control-zoom a {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  .leaflet-control-zoom a:hover {
+    background: var(--surface) !important;
+    color: var(--accent) !important;
+  }
+  .leaflet-control-attribution {
+    background: rgba(17,24,32,0.85) !important;
+    color: var(--text-dim) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--text-muted) !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    VENUE_FINDER
+  </div>
+  <div class="header-sep"></div>
+  <div class="api-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">checking api…</span>
+  </div>
+</header>
+
+<aside>
+
+  <!-- Location -->
+  <div>
+    <div class="field-label">01 / Location</div>
+    <button class="geo-btn" onclick="getLocation()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>
+      </svg>
+      USE MY LOCATION
+    </button>
+    <div style="height:8px"></div>
+    <div class="coord-row">
+      <div class="input-wrap">
+        <span class="input-sub">LAT</span>
+        <input type="number" id="lat" step="0.0001" placeholder="22.3072" value="22.3072">
+      </div>
+      <div class="input-wrap">
+        <span class="input-sub">LNG</span>
+        <input type="number" id="lng" step="0.0001" placeholder="73.1812" value="73.1812">
+      </div>
+    </div>
+  </div>
+
+  <!-- Radius — 4 km options only -->
+  <div>
+    <div class="field-label">02 / Radius</div>
+    <div class="radius-opts" id="radiusOpts">
+      <div class="radius-chip selected" data-val="5000"  onclick="selectRadius(this)">5<br>km</div>
+      <div class="radius-chip"          data-val="10000" onclick="selectRadius(this)">10<br>km</div>
+      <div class="radius-chip"          data-val="15000" onclick="selectRadius(this)">15<br>km</div>
+      <div class="radius-chip"          data-val="25000" onclick="selectRadius(this)">25<br>km</div>
+    </div>
+  </div>
+  <!-- Min Rating -->
+  <div>
+    <div class="field-label">03 / Min Rating</div>
+    <div class="rating-slider-wrap">
+      <div class="rating-slider-row">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-muted)">★ MIN</span>
+        <span class="rating-val" id="ratingVal">3.5</span>
+      </div>
+      <input type="range" id="minRating" min="3.5" max="5.0" step="0.1" value="3.5" oninput="updateRating(this.value)">
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text-dim)">
+        <span>3.5</span><span>4.0</span><span>4.5</span><span>5.0</span>
+      </div>
+    </div>
+  </div>
+  <!-- Category -->
+  <div>
+    <div class="field-label">04 / Category</div>
+    <div class="cat-grid">
+      <div class="cat-pill selected" data-val="cafe" onclick="selectCat(this)">
+        <span class="cat-icon">☕</span> Cafe
+      </div>
+      <div class="cat-pill" data-val="restaurant" onclick="selectCat(this)">
+        <span class="cat-icon">🍽️</span> Restaurant
+      </div>
+      <div class="cat-pill" data-val="date_spot" onclick="selectCat(this)">
+        <span class="cat-icon">🌟</span> Date Spot
+      </div>
+    </div>
+  </div>
+
+  <!-- Request preview -->
+  <div>
+    <div class="field-label">Request</div>
+    <div class="req-preview" id="reqPreview">
+      <span>GET</span> /venues?<br>
+      lat=<span id="pLat">22.3072</span>&amp;<br>
+      lng=<span id="pLng">73.1812</span>&amp;<br>
+      radius=<span id="pRadius">5000</span>&amp;<br>
+      type=<span id="pType">cafe</span>&amp;<br>
+      min_rating=<span id="pRating">3.5</span>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-banner" id="errBanner">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span id="errMsg"></span>
+  </div>
+
+  <button class="search-btn" id="searchBtn" onclick="search()">
+    <div class="spinner" id="spinner"></div>
+    <svg id="searchIcon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    SEARCH VENUES
+  </button>
+
+</aside>
+
+<main>
+  <div class="toolbar">
+    <div class="result-meta" id="resultMeta">
+      <strong>—</strong> results
+    </div>
+    <div class="view-tabs">
+      <button class="view-tab active" id="tabSplit"  onclick="setView('split')">SPLIT</button>
+      <button class="view-tab"        id="tabMap"   onclick="setView('map')">MAP</button>
+      <button class="view-tab"        id="tabList"  onclick="setView('list')">LIST</button>
+    </div>
+  </div>
+
+  <div class="main-content split-mode" id="mainContent">
+
+    <!-- Map -->
+    <div id="mapContainer">
+      <div id="map"></div>
+      <div class="map-empty" id="mapEmpty">
+        <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+        Configure your search<br>and press Search Venues
+      </div>
+    </div>
+
+    <!-- Results list -->
+    <div class="results-area" id="resultsArea">
+      <div class="empty-state">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+        Run a search to see results
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Leaflet JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const API = 'http://localhost:8000';
+let selectedRadius = 5000;
+let selectedCategory = 'cafe';
+let selectedMinRating = 3.5;
+let currentView = 'split';
+
+// ── Leaflet map init ──
+const map = L.map('map', {
+  center: [22.3072, 73.1812],
+  zoom: 13,
+  zoomControl: true,
+});
+
+// Dark tile layer (CartoDB Dark Matter)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(map);
+
+let originMarker = null;
+let radiusCircle = null;
+const venueMarkers = [];
+
+// Custom pin icon for venues
+function venueIcon(index) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      background: #3b9eff;
+      border: 2px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(59,158,255,0.5);
+      font-family: 'Space Mono', monospace;
+      font-size: 8px; font-weight: 700; color: #fff;
+    "><span style="transform: rotate(45deg)">${index + 1}</span></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 22],
+    popupAnchor: [0, -24],
+  });
+}
+
+// Origin pin icon
+const originIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    background: #1fd180;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    width: 18px; height: 18px;
+    box-shadow: 0 2px 12px rgba(31,209,128,0.7);
+  "></div>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+function clearMapLayers() {
+  venueMarkers.forEach(m => map.removeLayer(m));
+  venueMarkers.length = 0;
+  if (originMarker) { map.removeLayer(originMarker); originMarker = null; }
+  if (radiusCircle)  { map.removeLayer(radiusCircle);  radiusCircle = null; }
+}
+
+function plotMap(lat, lng, venues) {
+  clearMapLayers();
+
+  // Radius circle (strict boundary visualisation)
+  radiusCircle = L.circle([lat, lng], {
+    radius: selectedRadius,
+    color: '#3b9eff',
+    weight: 1.5,
+    opacity: 0.6,
+    fillColor: '#3b9eff',
+    fillOpacity: 0.04,
+    dashArray: '6 4',
+  }).addTo(map);
+
+  // Origin marker
+  originMarker = L.marker([lat, lng], { icon: originIcon, zIndexOffset: 1000 })
+    .bindPopup(`<div class="pop-name">Search Origin</div><div class="pop-addr">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`)
+    .addTo(map);
+
+  // Venue markers
+  venues.forEach((v, i) => {
+    const m = L.marker([v.lat, v.lng], { icon: venueIcon(i) })
+      .bindPopup(`
+          <div class="pop-name">${escHtml(v.name)}</div>
+
+          ${
+            v.rating != null
+              ? `
+                <div class="pop-rating">
+                  ★ ${v.rating.toFixed(1)}
+                  ${
+                    v.user_ratings_total != null
+                      ? `<span style="
+                            color:#8fa6c0;
+                            font-weight:400;
+                            margin-left:6px;
+                            font-size:10px;
+                          ">
+                            (${v.user_ratings_total.toLocaleString()})
+                        </span>`
+                      : ''
+                  }
+                </div>
+              `
+              : ''
+          }
+
+          <div class="pop-addr">
+            ${escHtml(v.address || 'Address unavailable')}
+          </div>
+        `)
+      .addTo(map);
+
+    // Clicking marker highlights corresponding card
+    m.on('click', () => highlightCard(i));
+    venueMarkers.push(m);
+  });
+
+  // Fit map to show all markers + circle
+  if (venues.length > 0) {
+    const group = L.featureGroup([radiusCircle, ...venueMarkers, originMarker]);
+    map.fitBounds(group.getBounds().pad(0.1));
+  } else {
+    map.setView([lat, lng], Math.max(12, getZoomForRadius(selectedRadius)));
+  }
+
+  document.getElementById('mapEmpty').classList.add('hidden');
+}
+
+function getZoomForRadius(r) {
+  if (r <= 5000)  return 13;
+  if (r <= 10000) return 12;
+  if (r <= 15000) return 11;
+  return 10;
+}
+
+function highlightCard(index) {
+  document.querySelectorAll('.venue-card').forEach((c, i) => {
+    c.classList.toggle('highlighted', i === index);
+    if (i === index) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+}
+
+// ── View toggle ──
+function setView(mode) {
+  currentView = mode;
+  const content = document.getElementById('mainContent');
+  content.className = 'main-content ' + mode + '-mode';
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+  // Leaflet needs a size refresh when the map container becomes visible
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+// ── Health check ──
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
+    const ok = r.ok;
+    document.getElementById('statusDot').className = 'status-dot ' + (ok ? 'ok' : 'err');
+    document.getElementById('statusText').textContent = ok ? 'api online · localhost:8000' : 'api error';
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot err';
+    document.getElementById('statusText').textContent = 'api offline';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 10000);
+
+// ── Geolocation ──
+function getLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('lat').value = pos.coords.latitude.toFixed(4);
+    document.getElementById('lng').value = pos.coords.longitude.toFixed(4);
+    updatePreview();
+  });
+}
+
+// ── Radius selection ──
+function selectRadius(el) {
+  document.querySelectorAll('.radius-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedRadius = parseInt(el.dataset.val);
+  updatePreview();
+}
+
+// ── Category selection ──
+function selectCat(el) {
+  document.querySelectorAll('.cat-pill').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedCategory = el.dataset.val;
+  updatePreview();
+}
+
+// ── Preview updater ──
+function updatePreview() {
+  const lat = document.getElementById('lat').value || '—';
+  const lng = document.getElementById('lng').value || '—';
+  document.getElementById('pLat').textContent = lat;
+  document.getElementById('pLng').textContent = lng;
+  document.getElementById('pRadius').textContent = selectedRadius;
+  document.getElementById('pType').textContent = selectedCategory;
+  document.getElementById('pRating').textContent = selectedMinRating.toFixed(1);
+}
+
+document.getElementById('lat').addEventListener('input', updatePreview);
+document.getElementById('lng').addEventListener('input', updatePreview);
+let lastApiData = null;
+
+function applyRatingFilter() {
+  if (!lastApiData) return;
+  const filtered = {
+    ...lastApiData,
+    venues: lastApiData.venues.filter(v => (v.rating ?? -1) >= selectedMinRating),
+  };
+  filtered.total = filtered.venues.length;
+  renderResults(filtered);
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lng = parseFloat(document.getElementById('lng').value);
+  plotMap(lat, lng, filtered.venues);
+}
+function updateRating(val) {
+  selectedMinRating = parseFloat(val);
+  document.getElementById('ratingVal').textContent = parseFloat(val).toFixed(1);
+  updatePreview();
+  applyRatingFilter();
+}
+
+// ── Search ──
+async function search() {
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lng = parseFloat(document.getElementById('lng').value);
+
+  const err = document.getElementById('errBanner');
+  const errMsg = document.getElementById('errMsg');
+  err.style.display = 'none';
+
+  if (isNaN(lat) || isNaN(lng)) {
+    errMsg.textContent = 'Enter valid lat/lng coordinates.';
+    err.style.display = 'flex';
+    return;
+  }
+
+  const btn = document.getElementById('searchBtn');
+  const spinner = document.getElementById('spinner');
+  const icon = document.getElementById('searchIcon');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  icon.style.display = 'none';
+
+  try {
+    const params = new URLSearchParams({ lat, lng, radius: selectedRadius, type: selectedCategory, min_rating: selectedMinRating });
+    const res = await fetch(`${API}/venues?${params}`, { signal: AbortSignal.timeout(30000) });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    lastApiData = data;
+    applyRatingFilter();
+  } catch (e) {
+    errMsg.textContent = e.message || 'Request failed. Is the API running?';
+    err.style.display = 'flex';
+    document.getElementById('resultMeta').innerHTML = '<strong>—</strong> results';
+    document.getElementById('resultsArea').innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Search failed
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    icon.style.display = 'block';
+  }
+}
+
+function renderResults(data) {
+  document.getElementById('resultMeta').innerHTML =
+    `<strong>${data.total}</strong> venue${data.total !== 1 ? 's' : ''} found · sorted by rating`;
+
+  if (!data.venues.length) {
+    document.getElementById('resultsArea').innerHTML =
+      '<div class="empty-state"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>No venues found in this area</div>';
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'venues-grid';
+
+  data.venues.forEach((v, i) => {
+    const card = document.createElement('div');
+    card.className = 'venue-card';
+    card.style.animationDelay = `${i * 40}ms`;
+
+    const count = v.user_ratings_total != null
+      ? ` <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(${v.user_ratings_total.toLocaleString()})</span>`
+      : '';
+    const rating = v.rating != null
+      ? `<div class="venue-rating">★ ${v.rating.toFixed(1)}${count}</div>`
+      : `<div class="venue-rating" style="color:var(--text-dim);border-color:transparent;background:transparent">—</div>`;
+
+    card.innerHTML = `
+      <div class="venue-header">
+        <div class="venue-name">${i + 1}. ${escHtml(v.name)}</div>
+        ${rating}
+      </div>
+      <div class="venue-address">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        ${escHtml(v.address || 'Address unavailable')}
+      </div>
+      <div class="venue-coords">
+        <span>LAT ${v.lat.toFixed(4)}</span>
+        <span>LNG ${v.lng.toFixed(4)}</span>
+      </div>
+      <div class="venue-id">${escHtml(v.place_id)}</div>
+    `;
+
+    // Clicking a card opens the corresponding map marker popup
+    card.addEventListener('click', () => {
+      if (venueMarkers[i]) {
+        venueMarkers[i].openPopup();
+        map.panTo([v.lat, v.lng], { animate: true });
+      }
+      highlightCard(i);
+    });
+
+    grid.appendChild(card);
+  });
+
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '';
+  area.appendChild(grid);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
