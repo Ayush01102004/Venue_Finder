@@ -465,6 +465,15 @@
     background: var(--accent-dim);
   }
 
+  .venue-thumb {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+  }
+
   .venue-header {
     display: flex;
     align-items: flex-start;
@@ -647,6 +656,78 @@
     font-size: 9px !important;
   }
   .leaflet-control-attribution a { color: var(--text-muted) !important; }
+  /* =========================
+   Venue Details Modal
+   ========================= */
+
+.venue-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.venue-modal.show {
+  display: flex;
+}
+
+.modal-content {
+  width: min(900px, 90vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-active);
+  border-radius: 14px;
+  padding: 20px;
+  animation: modalIn .25s ease;
+}
+
+.modal-close {
+  float: right;
+  cursor: pointer;
+  font-size: 22px;
+  color: var(--text-muted);
+}
+
+.modal-title {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.photo-grid img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-meta {
+  color: var(--text-muted);
+  line-height: 1.8;
+}
 </style>
 </head>
 <body>
@@ -790,6 +871,17 @@
     </div>
 
   </div>
+  <div id="venueModal" class="venue-modal">
+  <div class="modal-content">
+
+    <div class="modal-close" onclick="closeVenueModal()">
+      ✕
+    </div>
+
+    <div id="modalBody"></div>
+
+  </div>
+</div>
 </main>
 
 <!-- Leaflet JS -->
@@ -915,7 +1007,10 @@ function plotMap(lat, lng, venues) {
       .addTo(map);
 
     // Clicking marker highlights corresponding card
-    m.on('click', () => highlightCard(i));
+    m.on('click', () => {
+      highlightCard(i);
+      openVenueModal(v);
+    });
     venueMarkers.push(m);
   });
 
@@ -1107,6 +1202,20 @@ function renderResults(data) {
       : `<div class="venue-rating" style="color:var(--text-dim);border-color:transparent;background:transparent">—</div>`;
 
     card.innerHTML = `
+
+      ${
+        v.photos?.[0]
+          ? `
+            <img
+              src="${v.photos[0]}"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              class="venue-thumb"
+            />
+          `
+          : ''
+      }
+
       <div class="venue-header">
         <div class="venue-name">${i + 1}. ${escHtml(v.name)}</div>
         ${rating}
@@ -1124,11 +1233,17 @@ function renderResults(data) {
 
     // Clicking a card opens the corresponding map marker popup
     card.addEventListener('click', () => {
+
       if (venueMarkers[i]) {
         venueMarkers[i].openPopup();
-        map.panTo([v.lat, v.lng], { animate: true });
+        map.panTo([v.lat, v.lng], {
+          animate: true
+        });
       }
+
       highlightCard(i);
+
+      openVenueModal(v);
     });
 
     grid.appendChild(card);
@@ -1138,7 +1253,68 @@ function renderResults(data) {
   area.innerHTML = '';
   area.appendChild(grid);
 }
+function openVenueModal(venue) {
 
+  const photos = (venue.photos || [])
+    .map(url => `
+      <img
+        src="${url}"
+        loading="lazy"
+        referrerpolicy="no-referrer"
+        alt="${escHtml(venue.name)}"
+      />
+    `)
+    .join('');
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">
+      ${escHtml(venue.name)}
+    </div>
+
+    <div class="photo-grid">
+      ${
+        photos ||
+        '<div style="color:var(--text-muted)">No photos available</div>'
+      }
+    </div>
+
+    <div class="modal-meta">
+      <div><strong>Rating:</strong> ${venue.rating ?? 'N/A'}</div>
+      <div><strong>Reviews:</strong> ${venue.user_ratings_total ?? 'N/A'}</div>
+      <div><strong>Address:</strong> ${escHtml(venue.address || 'N/A')}</div>
+      <div><strong>Place ID:</strong> ${escHtml(venue.place_id)}</div>
+      <div><strong>Latitude:</strong> ${venue.lat}</div>
+      <div><strong>Longitude:</strong> ${venue.lng}</div>
+    </div>
+  `;
+
+  document
+    .getElementById('venueModal')
+    .classList.add('show');
+}
+
+function closeVenueModal() {
+  document
+    .getElementById('venueModal')
+    .classList.remove('show');
+}
+
+document
+  .getElementById('venueModal')
+  .addEventListener('click', e => {
+
+    if (e.target.id === 'venueModal') {
+      closeVenueModal();
+    }
+
+  });
+document.addEventListener('keydown', e => {
+
+  if (e.key === 'Escape') {
+    closeVenueModal();
+  }
+
+});
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }

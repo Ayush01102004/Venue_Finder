@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_validator
 from enum import Enum
 from typing import List
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class CategoryType(str, Enum):
@@ -12,8 +13,14 @@ class CategoryType(str, Enum):
 CATEGORY_TO_GOOGLE_TYPE: dict[CategoryType, list[str]] = {
     CategoryType.restaurant: ["restaurant"],
     CategoryType.cafe: ["cafe"],
-    CategoryType.date_spot: ["restaurant", "cafe", "park", "tourist_attraction"],
+    CategoryType.date_spot: [
+        "restaurant",
+        "cafe",
+        "park",
+        "tourist_attraction",
+    ],
 }
+
 
 VALID_RADII = [5000, 10000, 15000, 25000]
 
@@ -43,14 +50,18 @@ class VenueRequest(BaseModel):
     @classmethod
     def validate_radius(cls, v: int) -> int:
         if v not in VALID_RADII:
-            raise ValueError(f"Radius must be one of {VALID_RADII} metres")
+            raise ValueError(
+                f"Radius must be one of {VALID_RADII} metres"
+            )
         return v
 
     @field_validator("min_rating")
     @classmethod
     def validate_min_rating(cls, v: float) -> float:
         if not (3.5 <= v <= 5.0):
-            raise ValueError("min_rating must be between 3.5 and 5.0")
+            raise ValueError(
+                "min_rating must be between 3.5 and 5.0"
+            )
         return v
 
 
@@ -62,6 +73,9 @@ class Venue(BaseModel):
     lat: float
     lng: float
     place_id: str
+
+    # Google Places Photo URLs
+    photos: list[str] = Field(default_factory=list)
 
 
 class VenueResponse(BaseModel):
